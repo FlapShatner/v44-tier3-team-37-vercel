@@ -108,14 +108,10 @@ const Home: React.FC<ImagesProps> = ({
     router.push(`/upload`);
   };
 
-  const routeToImageDetails = (imageId: number) => {
-    router.push(`/image/${imageId}`)
-  }
-
   const routeToUpdateForm = (imageId: string) => {
-    router.push(`/update/${imageId}`)
-  }
-    
+    router.push(`/update/${imageId}`);
+  };
+
   const searchBarProps = {
     initialImages,
     displayedImages,
@@ -295,6 +291,5 @@ export async function getServerSideProps(context: {
     },
   };
 }
-
 
 export default Home;
