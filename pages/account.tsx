@@ -1,7 +1,8 @@
 import { useState } from "react";
-
+import { signIn } from "next-auth/react";
 import Head from "next/head";
 import Link from "next/link";
+import Image from "next/image";
 import type {
   InferGetServerSidePropsType,
   NextApiRequest,
@@ -25,6 +26,7 @@ import {
 export default function Account({
   data,
 }: InferGetServerSidePropsType<typeof getServerSideProps>) {
+  const orgImagesTotal = data?.organization?.orgCollectionLength;
   const [orgName, setOrgName] = useState(data?.organization?.orgName);
   const [orgDesc, setOrgDesc] = useState(data?.organization?.orgDesc);
   const [isEditing, setIsEditing] = useState(false);
@@ -60,6 +62,23 @@ export default function Account({
     }
   };
 
+  const deleteUser = async (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    try {
+      const body = { orgName };
+      await fetch(`/api/account/delete`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+    } catch (error) {
+      console.error(error);
+    }
+    signIn();
+  };
+
   if (!data) {
     return (
       <>
@@ -69,7 +88,9 @@ export default function Account({
     );
   }
   if (data.session.user.role == "USER") {
-    return <OutlineWarningBtn>Delete Account</OutlineWarningBtn>;
+    return (
+      <OutlineWarningBtn onClick={deleteUser}>Delete Account</OutlineWarningBtn>
+    );
   }
 
   return (
@@ -81,11 +102,13 @@ export default function Account({
           content="Find and collect historical images."
         />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href="/image-vault-logo-dall-e.png" />
       </Head>
       <div className={styles.account}>
         {data.session.user.role != "ORG" ? (
-          <OutlineWarningBtn>Delete Account</OutlineWarningBtn>
+          <OutlineWarningBtn onClick={deleteUser}>
+            Delete Account
+          </OutlineWarningBtn>
         ) : isEditing ? (
           <form onSubmit={handleForm} className={styles.container}>
             <label htmlFor="name">Organization name</label>
@@ -123,10 +146,28 @@ export default function Account({
           </form>
         ) : (
           <div className={styles.container}>
+            {data?.organization?.banner ? (
+              <Image
+                src={data?.organization?.banner}
+                alt={`${orgName} banner`}
+                height={120}
+                width={680}
+              />
+            ) : null}
             <h2>{orgName}</h2>
             <p>{orgDesc}</p>
+            <p className={styles.emphasis}>
+              {orgImagesTotal === 0
+                ? "No images"
+                : orgImagesTotal == 1
+                ? "1 image"
+                : `${orgImagesTotal} images`}{" "}
+              in collection
+            </p>
             <div className={styles.btnContainer}>
-              <OutlineWarningBtn>Delete Account</OutlineWarningBtn>
+              <OutlineWarningBtn onClick={deleteUser}>
+                Delete Account
+              </OutlineWarningBtn>
               <Btn onClick={() => setIsEditing(true)}>Update</Btn>
             </div>
           </div>
@@ -142,6 +183,7 @@ type AccountData = {
     orgName: string;
     orgDesc: string;
     orgCollectionLength?: number;
+    banner?: string;
   };
   session: Session;
 };
@@ -184,6 +226,9 @@ export async function getServerSideProps(context: {
         id: session.user.id,
       },
     },
+    include: {
+      images: true,
+    },
   });
 
   // if we have a session with org role and organization object - return org data and session
@@ -192,6 +237,8 @@ export async function getServerSideProps(context: {
       organization: {
         orgName: org.name,
         orgDesc: org.description,
+        orgCollectionLength: org.images.length || 0,
+        banner: org.banner,
       },
       session: session,
     };
